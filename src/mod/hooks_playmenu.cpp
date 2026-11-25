@@ -799,3 +799,35 @@ class $modify(PlayMenuEditLevelLayer, EditLevelLayer) {
             EditLevelLayer::onPlay(sender);
     }
 };
+// ---- The pause menu button: opens the play menu for the level being played ----
+#include <Geode/modify/PauseLayer.hpp>
+
+class $modify(GDSolverPauseLayer, PauseLayer) {
+    void customSetup() {
+        PauseLayer::customSetup();
+        auto* menu = this->getChildByID("right-button-menu");
+        if (!menu) return;
+        auto* label = CCLabelBMFont::create("Solve", "bigFont.fnt");
+        label->setScale(.5f);
+        auto* spr = CircleButtonSprite::create(label, CircleBaseColor::Green, CircleBaseSize::Medium);
+        auto* btn = CCMenuItemSpriteExtra::create(
+            spr, this, menu_selector(GDSolverPauseLayer::onSolverMenu));
+        btn->setID("solver-button"_spr);
+        menu->addChild(btn);
+        menu->updateLayout();
+    }
+
+    void onSolverMenu(CCObject*) {
+        auto* pl = PlayLayer::get();
+        if (!pl || !pl->m_level) return;
+        GJGameLevel* level = pl->m_level;
+        const bool mainLevel = level->m_levelType == GJLevelType::Main;
+        auto facts = playmenu::readLevel(level, mainLevel);
+        Ref<GJGameLevel> keep = level;
+        auto* p = playmenu::Popup::create(level, facts, [keep] {
+            CCDirector::get()->replaceScene(
+                CCTransitionFade::create(.5f, PlayLayer::scene(keep, false, false)));
+        });
+        if (p) p->show();
+    }
+};
