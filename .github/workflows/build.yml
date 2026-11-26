@@ -1,103 +1,33 @@
-# The Windows package for Geometry Dash 2.2091 on Geode 6.0.0 (mod.json names both), built with geode-sdk/build-geode-mod: upstream's own action,
-# Ninja + clang + Release + LTO, the SDK of the version mod.json asks for and the bindings of geode-sdk/bindings pinned to the commit below.
-# Android is a manual run only (docs/ANDROID.md; it is not part of this release). Only the Windows package is attached to a release, and only to a
-# full one: a pre-release gets no Windows package.
-#
-# The point of building here rather than locally is that the binary attached to a release can be traced to a commit of the public tree. The pitfalls
-# page asks for it for that reason ("makes it easier for us to verify that a mod has not been tampered with").
-#
-# This can only prove the mod compiles. The behaviour bar -- py/quick_regress.py and the cold regression -- needs Geometry Dash itself, so it stays a
-# local step.
-name: Build
-
+name: Build Mod
 on:
   workflow_dispatch:
   push:
-    branches: ["**"]
-  pull_request:
-  # Not on tag push: the release does not exist yet at that point and the upload below would have
-  # nowhere to go. Publishing the release is the event that wants a binary.
-  release:
-    types: [published]
-
-permissions:
-  contents: write
+    branches: [main]
 
 jobs:
-  windows:
-    name: Windows (GD 2.2091, Geode 6)
-    runs-on: windows-latest
-
+  build:
+    strategy:
+      matrix:
+        config:
+          - name: Windows
+            os: windows-latest
+    runs-on: ${{ matrix.config.os }}
+    name: ${{ matrix.config.name }}
     steps:
-      - uses: actions/checkout@v7
-
-      # The solver CLI (leveldp and its test drivers) is a desktop tool; only the mod is built. bindings-ref pins the bindings: the SDK would take the latest
-      # main otherwise, and a release must build from what was tested (the commit the release candidate was built and run with).
-      - name: Build the mod
-        id: build
-        uses: geode-sdk/build-geode-mod@main
+      - uses: actions/checkout@v4
+      - uses: geode-sdk/build-geode-mod@main
         with:
-          sdk: given
-          bindings-ref: d14587bf6c08b9114b5605ec6a3c42cc16b02de6   # the upstream bindings commit the measured v0.8.0 candidate was built with (2026-11-25)
-          configure-args: -DGDSOLVER_BUILD_DP=OFF
+          combine: true
+          target: ${{ matrix.config.target }}
 
-      - name: Upload the package
-        uses: actions/upload-artifact@v7
-        with:
-          name: geode-package
-          path: ${{ steps.build.outputs.build-output }}
-
-      # The file is named after the mod id, so it is matched rather than spelled out -- the id
-      # changed once already and took four hardcoded copies of the old name with it.
-      - name: Attach it to the release
-        if: github.event_name == 'release' && !github.event.release.prerelease
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-          OUT: ${{ steps.build.outputs.build-output }}
-        run: |
-          gh release upload "${{ github.event.release.tag_name }}" "$OUT"/*.geode --clobber
-
-  # Manual only: Android is not part of the release (it is built for 2.2081, the version mod.json's gd.android names, and published by hand).
-  android:
-    name: Android64 (experimental, manual)
-    if: github.event_name == 'workflow_dispatch'
+  package:
+    name: Package
     runs-on: ubuntu-latest
-    continue-on-error: true
-
+    needs: build
     steps:
-      - uses: actions/checkout@v7
-
-      # The solver CLI (leveldp and its test drivers) is a desktop tool; only the mod is built.
-      - name: Build the mod
+      - uses: geode-sdk/build-geode-mod/combine@main
         id: build
-        continue-on-error: true
-        uses: geode-sdk/build-geode-mod@main
+      - uses: actions/upload-artifact@v4
         with:
-          target: Android64
-          bindings-ref: f050fd74ad531b0827377c97510cb807903ff1b3
-          configure-args: -DGDSOLVER_BUILD_DP=OFF -DCMAKE_CXX_FLAGS=-ferror-limit=0
-
-      # ninja stops at the first failing file. While the port is incomplete, go on through
-      # the same build directory, keep every error, and end the log with each distinct one
-      # once (most frequent first), so one run gives the whole list in its last lines.
-      - name: List every compile error
-        if: steps.build.outcome == 'failure'
-        shell: bash
-        run: |
-          set +e
-          cmake --build build -- -k 0 > build-errors.log 2>&1
-          status=$?
-          echo "=== distinct errors (count, place, message) ==="
-          grep -E "error:" build-errors.log | sed -E "s#${GITHUB_WORKSPACE}/##" \
-            | sort | uniq -c | sort -rn
-          echo "=== translation units that failed ==="
-          grep -E "^FAILED:" build-errors.log | sed -E 's#.* -c ##; s#'"${GITHUB_WORKSPACE}"'/##' | sort -u
-          exit $status
-
-      - name: Upload the package
-        if: steps.build.outcome == 'success'
-        uses: actions/upload-artifact@v7
-        with:
-          name: geode-package-android64
+          name: Build Output
           path: ${{ steps.build.outputs.build-output }}
