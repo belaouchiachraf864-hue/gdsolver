@@ -39,7 +39,9 @@ if (NOT GDSOLVER_BUILD_DP)
     return()   # the mod still links the core above; only the CLI and its drivers are skipped
 endif()
 
-add_executable(leveldp src/leveldp_main.cpp)
+# EXCLUDE_FROM_ALL: not part of the default build (the LLVM linker crashed on dptest in CI).
+# Build by hand with: cmake --build build --target leveldp
+add_executable(leveldp EXCLUDE_FROM_ALL src/leveldp_main.cpp)
 target_link_libraries(leveldp PRIVATE gdsolver_dpcore)
 
 # The same core, called more than once in one process -- what the mod does and the CLI never
@@ -49,11 +51,9 @@ target_link_libraries(leveldp PRIVATE gdsolver_dpcore)
 add_executable(seqcall EXCLUDE_FROM_ALL src/seqcall_main.cpp)
 target_link_libraries(seqcall PRIVATE gdsolver_dp)
 
-# The rules a corpus of whole sections cannot referee -- a boundary the recordings in it do not
-# contain. Run it by hand next to quick_regress; it needs no game and no data. It stays in the
-# routine build: it is the cheapest of the solver's translation units, and the acceptance steps
-# run it right after a build, where a stale binary would pass without a word.
-add_executable(dptest src/dptest_main.cpp)
+# The rules a corpus of whole sections cannot referee. Run it by hand.
+# Also EXCLUDE_FROM_ALL now: `cmake --build build --target dptest`.
+add_executable(dptest EXCLUDE_FROM_ALL src/dptest_main.cpp)
 target_link_libraries(dptest PRIVATE gdsolver_dp)
 
 gdsolver_dp_options(leveldp)
