@@ -12,9 +12,16 @@ class $modify(GDSolverPauseLayer, PauseLayer) {
     void customSetup() {
         PauseLayer::customSetup();
 
-        auto menu = this->getChildByID("right-button-menu");
-        if (!menu) return;
+        log::info("gdsolver: PauseLayer::customSetup hook fired");
 
+        auto win = CCDirector::get()->getWinSize();
+
+        auto menu = CCMenu::create();
+        menu->setID("gdsolver-menu"_spr);
+        menu->setPosition({0.f, 0.f});
+        menu->setContentSize(win);
+
+        float y = win.height / 2.f + 20.f;
         for (auto [label, mode] : {
             std::pair{"Solve", (int)UI_MODE_SOLVE},
             std::pair{"Replay", (int)UI_MODE_REPLAY},
@@ -25,9 +32,12 @@ class $modify(GDSolverPauseLayer, PauseLayer) {
             );
             btn->setTag(mode);
             btn->setID(fmt::format("{}-button"_spr, label));
+            btn->setPosition({win.width - 60.f, y});
             menu->addChild(btn);
+            y -= 40.f;
         }
-        menu->updateLayout();
+
+        this->addChild(menu, 100);
     }
 
     void onBotMode(CCObject* sender) {
@@ -52,7 +62,6 @@ class $modify(GDSolverPauseLayer, PauseLayer) {
             }
         }
 
-        // Same as Start in the play menu, with the saved options
         g_uiMode = mode;
         g_uiCoins = coins;
         int glitch = mode == UI_MODE_SOLVE
@@ -65,7 +74,6 @@ class $modify(GDSolverPauseLayer, PauseLayer) {
             ? mod->getSavedValue<int>("play-search", UI_SEARCH_DP) : UI_SEARCH_DP;
         g_uiArmedLevel = level;
 
-        // Rebuild the level so that PlayLayer::init reads the armed mode
         auto scene = PlayLayer::scene(level, false);
         CCDirector::get()->replaceScene(CCTransitionFade::create(0.5f, scene));
     }
