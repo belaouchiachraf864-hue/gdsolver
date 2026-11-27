@@ -19,6 +19,7 @@ jobs:
         with:
           combine: true
           target: ${{ matrix.config.target }}
+          configure-args: -DGDSOLVER_BUILD_DP=OFF
 
   package:
     name: Package
