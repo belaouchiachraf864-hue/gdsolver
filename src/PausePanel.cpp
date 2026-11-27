@@ -66,7 +66,7 @@ class $modify(GDSolverPauseLayer, PauseLayer) {
         g_uiArmedLevel = level;
 
         // Rebuild the level so that PlayLayer::init reads the armed mode
-        auto scene = PlayLayer::scene(level, false, false);
+        auto scene = PlayLayer::scene(level, false);
         CCDirector::get()->replaceScene(CCTransitionFade::create(0.5f, scene));
     }
 };
